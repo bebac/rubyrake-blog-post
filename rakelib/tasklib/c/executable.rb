@@ -1,5 +1,6 @@
 require 'rake'
 require 'rake/tasklib'
+require 'open3'
 
 module Rake
   
@@ -24,12 +25,36 @@ module Rake
       end
 
       def define
+
         objects = sources.collect { |s| s.sub(/\.c$/, '.o') }
 
         sources.zip(objects) do |source, object|
           task object => [ source ] do |t|
             unless uptodate?(t.name, t.prerequisites)
-              sh "gcc -o#{t.name} -c #{t.prerequisites[0]}"
+              
+              command = "gcc -H -o#{t.name} -c #{t.prerequisites[0]}"
+              autodepends = []
+
+              puts command
+              
+              Open3.popen2e(command) do |stdin, stdout, wait_thr|
+                stdin.close
+                stdout.lines do |line|
+                  case line
+                  when /^\./
+                    autodepends << line.sub(/^\.+\s+/, '').strip
+                  when /Multiple include guards/
+                    # Filter out include guards warnings.
+                    stdout.lines do |line|                        
+                        if line =~ /:$/ then puts line; break; end
+                    end
+                  else
+                    puts line
+                  end
+                end
+                fail "error compiling #{t.prerequisites[0]}" unless wait_thr.value == 0
+              end
+
             end
           end
         end
@@ -39,6 +64,7 @@ module Rake
         task executable => objects do |t|
           sh "gcc -o#{t.name} #{t.prerequisites.join(' ')}"
         end
+
       end
 
     end
