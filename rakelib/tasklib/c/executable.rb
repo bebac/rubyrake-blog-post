@@ -1,10 +1,21 @@
 require 'rake'
 require 'rake/tasklib'
 require 'open3'
+require 'pstore'
 
 module Rake
   
   module C
+
+    module Dep
+
+      extend self
+
+      def store
+        @@store ||= PStore.new('rakelib/.depends')
+      end
+
+    end
 
     class ExecutableTask < TaskLib
 
@@ -30,7 +41,7 @@ module Rake
 
         sources.zip(objects) do |source, object|
           task object => [ source ] do |t|
-            unless uptodate?(t.name, t.prerequisites)
+            unless uptodate?(t.name, t.prerequisites+ (Dep.store.transaction(true) { |store| store[t.name] } || []))
               
               command = "gcc -H -o#{t.name} -c #{t.prerequisites[0]}"
               autodepends = []
@@ -54,6 +65,8 @@ module Rake
                 end
                 fail "error compiling #{t.prerequisites[0]}" unless wait_thr.value == 0
               end
+              
+              Dep.store.transaction(false) { |store| store[object] = autodepends }
 
             end
           end
