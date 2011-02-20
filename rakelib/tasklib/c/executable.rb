@@ -24,7 +24,20 @@ module Rake
       end
 
       def define
-        task name do
+        objects = sources.collect { |s| s.sub(/\.c$/, '.o') }
+
+        sources.zip(objects) do |source, object|
+          task object => [ source ] do |t|
+            unless uptodate?(t.name, t.prerequisites)
+              sh "gcc -o#{t.name} -c #{t.prerequisites[0]}"
+            end
+          end
+        end
+
+        executable = "%s" % [ name ]
+
+        task executable => objects do |t|
+          sh "gcc -o#{t.name} #{t.prerequisites.join(' ')}"
         end
       end
 
