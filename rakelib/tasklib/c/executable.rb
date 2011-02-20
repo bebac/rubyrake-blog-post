@@ -62,7 +62,9 @@ module Rake
         executable = "%s" % [ name ]
 
         task executable => objects do |t|
-          sh "gcc -o#{t.name} #{t.prerequisites.join(' ')}"
+          unless uptodate?(t.name, t.prerequisites)
+            sh "gcc -o#{t.name} #{t.prerequisites.join(' ')}"
+          end
         end
 
       end
