@@ -40,10 +40,10 @@ module Rake
         objects = sources.collect { |s| s.sub(/\.c$/, '.o') }
 
         sources.zip(objects) do |source, object|
-          task object => [ source ] do |t|
-            unless uptodate?(t.name, t.prerequisites+ (Dep.store.transaction(true) { |store| store[t.name] } || []))
+          task object => [ source ] + (Dep.store.transaction(true) { |store| store[object] } || []) do |t|
+            unless uptodate?(t.name, t.prerequisites)
               
-              command = "gcc -H -o#{t.name} -c #{t.prerequisites[0]}"
+              command = "cl /nologo /showIncludes /Fo#{t.name} /c #{t.prerequisites[0]}"
               autodepends = []
 
               puts command
@@ -52,13 +52,8 @@ module Rake
                 stdin.close
                 stdout.lines do |line|
                   case line
-                  when /^\./
-                    autodepends << line.sub(/^\.+\s+/, '').strip
-                  when /Multiple include guards/
-                    # Filter out include guards warnings.
-                    stdout.lines do |line|                        
-                        if line =~ /:$/ then puts line; break; end
-                    end
+                  when /^Note:\s+including file:/
+                    autodepends << line.sub(/^Note:\s+including file:/, '').strip
                   else
                     puts line
                   end
@@ -72,13 +67,14 @@ module Rake
           end
         end
 
-        executable = "%s" % [ name ]
+        executable = "%s.exe" % [ name ]
 
-        task executable => objects do |t|
+        task executable => objects do |t|            
           unless uptodate?(t.name, t.prerequisites)
-            sh "gcc -o#{t.name} #{t.prerequisites.join(' ')}"
+            sh "link /NOLOGO /OUT:#{t.name} #{t.prerequisites.join(' ')}"
           end
-        end
+        end    
+        task name => executable
 
       end
 
