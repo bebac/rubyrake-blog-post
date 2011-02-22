@@ -1,5 +1,6 @@
 require 'rake'
 require 'rake/tasklib'
+require 'rake/clean'
 require 'open3'
 require 'pstore'
 
@@ -11,8 +12,12 @@ module Rake
 
       extend self
 
+      def filename
+        'rakelib/.depends'
+      end
+
       def store
-        @@store ||= PStore.new('rakelib/.depends')
+        @@store ||= PStore.new(filename)
       end
 
     end
@@ -81,6 +86,9 @@ module Rake
             sh "gcc -o#{t.name} #{t.prerequisites.join(' ')}"
           end
         end
+
+        CLEAN.include(objects, Dep.filename)
+        CLOBBER.include(executable)
 
       end
 
