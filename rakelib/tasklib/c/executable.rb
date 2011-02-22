@@ -40,8 +40,9 @@ module Rake
         objects = sources.collect { |s| s.sub(/\.c$/, '.o') }
 
         sources.zip(objects) do |source, object|
-          task object => [ source ] do |t|
-            unless uptodate?(t.name, t.prerequisites+ (Dep.store.transaction(true) { |store| store[t.name] } || []))
+          task object => [ source ] + (Dep.store.transaction(true) { |store| store[object] } || []) do |t|
+
+            unless uptodate?(t.name, t.prerequisites)
               
               command = "gcc -H -o#{t.name} -c #{t.prerequisites[0]}"
               autodepends = []
@@ -69,6 +70,7 @@ module Rake
               Dep.store.transaction(false) { |store| store[object] = autodepends }
 
             end
+
           end
         end
 
